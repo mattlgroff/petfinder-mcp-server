@@ -23,20 +23,13 @@ This single-file MCP server uses:
 
 ## 🔐 Authentication
 
-This MCP server handles Petfinder OAuth authentication automatically via **request headers**:
+This MCP server handles Petfinder OAuth authentication automatically via **query parameters**:
 
-### **Header-Based Authentication**
-Send your Petfinder credentials in HTTP headers with each MCP request:
+### **Query Parameter Authentication**
+Add your Petfinder credentials as query parameters to the MCP server URL:
 ```
-x-petfinder-client-id: your-petfinder-client-id
-x-petfinder-client-secret: your-petfinder-client-secret
+http://localhost:3000/mcp?client-id=your-petfinder-client-id&client-secret=your-petfinder-client-secret
 ```
-
-**Alternative header formats also supported:**
-- `petfinder-client-id` / `petfinder-client-secret`
-- `x-client-id` / `x-client-secret`
-- `client-id` / `client-secret`
-- `x-api-key` / `x-api-secret`
 
 ### **OAuth Flow Management**
 - **Client credentials flow**: Exchanges your credentials for access tokens automatically
@@ -45,14 +38,12 @@ x-petfinder-client-secret: your-petfinder-client-secret
 - **Token refresh**: Automatically requests new access tokens when expired (every 3600 seconds)
 - **Bearer token authentication**: Uses access tokens in `Authorization: Bearer {token}` headers
 
-### **Claude.ai Integration**
-When adding this MCP server to Claude.ai:
-1. Use the server URL: `https://your-server.com/mcp`
-2. Add your Petfinder credentials in the "Headers" section:
-   - `x-petfinder-client-id`: `your-client-id`
-   - `x-petfinder-client-secret`: `your-client-secret`
-3. Claude will automatically send these headers with each request
-4. The server logs all incoming headers to help debug authentication
+### **MCP Client Integration**
+When adding this MCP server to MCP clients (Claude.ai, MCP Inspector, etc.):
+1. Use the server URL with your credentials: `http://localhost:3000/mcp?client-id=your-client-id&client-secret=your-client-secret`
+2. No additional headers or configuration needed
+3. The server automatically extracts credentials from the URL query parameters
+4. Works seamlessly with all MCP clients that support HTTP servers
 
 ---
 
@@ -120,12 +111,12 @@ The entire MCP server is implemented in a single TypeScript file (`simple-mcp-se
 | ------------------- | -------------------------------------- | -------- | ----------- |
 | `PORT`              | `3000`                                | ❌ | Server port (defaults to 3000) |
 
-**🔑 Authentication:** Credentials are provided via request headers only - no environment variables needed!
+**🔑 Authentication:** Credentials are provided via query parameters only - no environment variables needed!
 
 **Getting your credentials:**
 1. Create a Petfinder account at [petfinder.com](https://petfinder.com) if you don't have one
 2. Get your API Key (Client ID) and Secret at [petfinder.com/user/developer-settings](https://www.petfinder.com/user/developer-settings/)
-3. Use these credentials in your request headers when calling the MCP server
+3. Use these credentials as query parameters when connecting to the MCP server
 
 ---
 
@@ -138,9 +129,9 @@ You can use the official [MCP Inspector](https://github.com/modelcontextprotocol
     bun run simple-mcp-server.ts
     ```
 
-2.  **Run the inspector** in another terminal:
+2.  **Run the inspector** in another terminal with your credentials:
     ```bash
-    npx @modelcontextprotocol/inspector http://localhost:3000/mcp
+    npx @modelcontextprotocol/inspector "http://localhost:3000/mcp?client-id=your-client-id&client-secret=your-client-secret"
     ```
 
 This will launch a web UI where you can see all available tools and manually trigger them with different parameters, making it easy to debug your tool logic.
@@ -157,7 +148,7 @@ bun run simple-mcp-server.ts
 
 Send a request:
 ```bash
-curl -X POST http://localhost:3000/mcp \
+curl -X POST "http://localhost:3000/mcp?client-id=your-client-id&client-secret=your-client-secret" \
   -H "Content-Type: application/json" \
   -d '{
         "jsonrpc": "2.0",
@@ -236,20 +227,18 @@ Response format:
 
 ---
 
-## 🔍 Claude.ai Integration & Debugging
+## 🔍 MCP Client Integration & Debugging
 
-This server includes comprehensive request logging to help you integrate with Claude.ai:
+This server includes comprehensive request logging to help you integrate with MCP clients:
 
-**Example with header authentication:**
+**Example with query parameter authentication:**
 ```bash
-curl -X POST http://localhost:3000/mcp \
+curl -X POST "http://localhost:3000/mcp?client-id=your-client-id&client-secret=your-client-secret" \
   -H "Content-Type: application/json" \
-  -H "x-petfinder-client-id: your-client-id" \
-  -H "x-petfinder-client-secret: your-client-secret" \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
 ```
 
-**Debug Output:** The server logs all incoming headers, request bodies, and authentication attempts to help you see exactly what Claude.ai is sending and troubleshoot any authentication issues.
+**Debug Output:** The server logs all incoming requests, query parameters, and authentication attempts to help you see exactly what your MCP client is sending and troubleshoot any authentication issues.
 
 ### Search Examples
 

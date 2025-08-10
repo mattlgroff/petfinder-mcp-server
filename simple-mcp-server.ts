@@ -21,7 +21,7 @@ import { z } from 'zod';
 // No global credentials needed - we'll pass them through the call chain
 
 console.log('🔧 Petfinder MCP Server starting...');
-console.log('🔑 Authentication required: x-petfinder-client-id and x-petfinder-client-secret headers');
+console.log('🔑 Authentication via query parameters: client-id and client-secret');
 console.log('🏢 Multi-client support: Each client ID gets its own token cache');
 const PETFINDER_BASE = 'https://api.petfinder.com/v2';
 
@@ -58,7 +58,7 @@ async function getAccessToken(clientId: string, clientSecret: string): Promise<s
   const now = Math.floor(Date.now() / 1000);
   
   if (!clientId || !clientSecret) {
-    throw new Error('Missing Petfinder credentials. Provide x-petfinder-client-id and x-petfinder-client-secret headers.');
+    throw new Error('Missing Petfinder credentials. Provide client-id and client-secret query parameters.');
   }
   
   // Clean up expired tokens periodically
@@ -600,16 +600,16 @@ const allTools = {
   'breeds.list': listAnimalBreeds,
 };
 
-function extractCredentialsFromHeaders(headers: Headers): { clientId?: string; clientSecret?: string } {
-  const clientId = headers.get('x-petfinder-client-id');
-  const clientSecret = headers.get('x-petfinder-client-secret');
+function extractCredentialsFromQuery(url: URL): { clientId?: string; clientSecret?: string } {
+  const clientId = url.searchParams.get('client-id') || undefined;
+  const clientSecret = url.searchParams.get('client-secret') || undefined;
 
   if (clientId) {
-    console.log(`🔑 Found Client ID in header: x-petfinder-client-id`);
+    console.log(`🔑 Found Client ID in query params`);
   }
 
   if (clientSecret) {
-    console.log(`🔐 Found Client Secret in header: x-petfinder-client-secret`);
+    console.log(`🔐 Found Client Secret in query params`);
   }
 
   return { clientId, clientSecret };
@@ -617,7 +617,7 @@ function extractCredentialsFromHeaders(headers: Headers): { clientId?: string; c
 
 async function handleMCPRequest(
   request: MCPRequest,
-  headers: Headers
+  url: URL
 ): Promise<MCPResponse | null> {
   switch (request.method) {
     case 'initialize':
@@ -643,7 +643,7 @@ async function handleMCPRequest(
     case 'tools/call':
       const { name, arguments: args } = request.params;
       const handler = allTools[name as keyof typeof allTools];
-      const { clientId, clientSecret } = extractCredentialsFromHeaders(headers);
+      const { clientId, clientSecret } = extractCredentialsFromQuery(url);
 
       if (!handler) {
         return {
@@ -656,14 +656,14 @@ async function handleMCPRequest(
         };
       }
 
-      // Check for required authentication headers
+      // Check for required authentication query parameters
       if (!clientId || !clientSecret) {
         return {
           jsonrpc: '2.0',
           id: request.id!,
           error: {
             code: -32001,
-            message: 'Authentication required - you need to pass both x-petfinder-client-id and x-petfinder-client-secret headers',
+            message: 'Authentication required - you need to pass both client-id and client-secret query parameters',
           },
         };
       }
@@ -780,7 +780,7 @@ serve({
         console.log('   Params:', JSON.stringify(body.params, null, 2));
       }
       
-      const response = await handleMCPRequest(body, req.headers);
+      const response = await handleMCPRequest(body, url);
 
       if (response) {
         console.log('✅ Sending MCP Response');
