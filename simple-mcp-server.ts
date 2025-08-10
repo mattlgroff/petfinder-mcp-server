@@ -21,7 +21,7 @@ import { z } from 'zod';
 // No global credentials needed - we'll pass them through the call chain
 
 console.log('🔧 Petfinder MCP Server starting...');
-console.log('🔑 Authentication via request headers: x-petfinder-client-id, x-petfinder-client-secret');
+console.log('🔑 Authentication required: x-petfinder-client-id and x-petfinder-client-secret headers');
 console.log('🏢 Multi-client support: Each client ID gets its own token cache');
 const PETFINDER_BASE = 'https://api.petfinder.com/v2';
 
@@ -257,11 +257,46 @@ async function getAnimalBreeds(params: z.infer<typeof animalBreedsSchema>) {
 }
 
 // =============================================================================
+// JSON SCHEMA UTILITIES
+// =============================================================================
+
+function zodToMCPSchema(schema: z.ZodObject<any>) {
+  const jsonSchema = z.toJSONSchema(schema) as any;
+  
+  // Fix the required array - remove fields that are optional or have defaults
+  if (jsonSchema.required && Array.isArray(jsonSchema.required)) {
+    const shape = schema.shape;
+    jsonSchema.required = jsonSchema.required.filter((fieldName: string) => {
+      const field = shape[fieldName];
+      // Remove from required if field is optional or has a default
+      return !field.isOptional() && field._def.defaultValue === undefined;
+    });
+    
+    // If no truly required fields, remove the required array entirely
+    if (jsonSchema.required.length === 0) {
+      delete jsonSchema.required;
+    }
+  }
+  
+  return jsonSchema;
+}
+
+// =============================================================================
 // MCP TOOL IMPLEMENTATIONS
 // =============================================================================
 
-async function searchPets(input: z.infer<typeof animalSearchSchema>) {
-  const result = await searchAnimals(input) as any;
+async function searchPets(input: any) {
+  // Apply defaults before validation
+  const inputWithDefaults = {
+    status: 'adoptable',
+    sort: 'recent',
+    page: 1,
+    limit: 20,
+    ...input // User input overrides defaults
+  };
+  
+  const validatedInput = animalSearchSchema.parse(inputWithDefaults);
+  const result = await searchAnimals(validatedInput) as any;
   return {
     content: [
       {
@@ -292,8 +327,16 @@ async function getPet(input: z.infer<typeof animalGetSchema>) {
   };
 }
 
-async function searchOrgs(input: z.infer<typeof organizationSearchSchema>) {
-  const result = await searchOrganizations(input) as any;
+async function searchOrgs(input: any) {
+  // Apply defaults before validation
+  const inputWithDefaults = {
+    page: 1,
+    limit: 20,
+    ...input // User input overrides defaults
+  };
+  
+  const validatedInput = organizationSearchSchema.parse(inputWithDefaults);
+  const result = await searchOrganizations(validatedInput) as any;
   return {
     content: [
       {
@@ -506,44 +549,44 @@ const tools = [
   {
     name: 'pets.search',
     title: 'Search for adoptable pets',
-    description: 'Search for adoptable pets by type, breed, size, location, and other criteria.',
-    inputSchema: z.toJSONSchema(animalSearchSchema),
+    description: 'Search for adoptable pets by type, breed, size, location, and other criteria. Optional parameters: status (default: "adoptable"), sort (default: "recent"), page (default: 1), limit (default: 20).',
+    inputSchema: zodToMCPSchema(animalSearchSchema),
   },
   {
     name: 'pets.get',
     title: 'Get pet details',
     description: 'Get detailed information about a specific pet by ID.',
-    inputSchema: z.toJSONSchema(animalGetSchema),
+    inputSchema: zodToMCPSchema(animalGetSchema),
   },
   {
     name: 'organizations.search',
     title: 'Search for animal welfare organizations',
-    description: 'Search for animal welfare organizations by name, location, and other criteria.',
-    inputSchema: z.toJSONSchema(organizationSearchSchema),
+    description: 'Search for animal welfare organizations by name, location, and other criteria. Optional parameters: sort, page (default: 1), limit (default: 20).',
+    inputSchema: zodToMCPSchema(organizationSearchSchema),
   },
   {
     name: 'organizations.get',
     title: 'Get organization details',
     description: 'Get detailed information about a specific organization by ID.',
-    inputSchema: z.toJSONSchema(organizationGetSchema),
+    inputSchema: zodToMCPSchema(organizationGetSchema),
   },
   {
     name: 'types.list',
     title: 'List animal types',
     description: 'Get a list of all available animal types.',
-    inputSchema: z.toJSONSchema(animalTypesSchema),
+    inputSchema: zodToMCPSchema(animalTypesSchema),
   },
   {
     name: 'types.get',
     title: 'Get animal type details',
     description: 'Get detailed information about a specific animal type.',
-    inputSchema: z.toJSONSchema(animalTypeSchema),
+    inputSchema: zodToMCPSchema(animalTypeSchema),
   },
   {
     name: 'breeds.list',
     title: 'List animal breeds',
     description: 'Get a list of breeds for a specific animal type.',
-    inputSchema: z.toJSONSchema(animalBreedsSchema),
+    inputSchema: zodToMCPSchema(animalBreedsSchema),
   },
 ];
 
@@ -558,46 +601,15 @@ const allTools = {
 };
 
 function extractCredentialsFromHeaders(headers: Headers): { clientId?: string; clientSecret?: string } {
-  // Try various header formats that Claude might use
-  const possibleClientIdHeaders = [
-    'x-petfinder-client-id',
-    'petfinder-client-id',
-    'x-client-id',
-    'client-id',
-    'x-api-key',
-    'api-key',
-    'authorization-client-id'
-  ];
-  
-  const possibleClientSecretHeaders = [
-    'x-petfinder-client-secret',
-    'petfinder-client-secret', 
-    'x-client-secret',
-    'client-secret',
-    'x-api-secret',
-    'api-secret',
-    'authorization-client-secret'
-  ];
+  const clientId = headers.get('x-petfinder-client-id');
+  const clientSecret = headers.get('x-petfinder-client-secret');
 
-  let clientId: string | undefined;
-  let clientSecret: string | undefined;
-
-  for (const header of possibleClientIdHeaders) {
-    const value = headers.get(header);
-    if (value) {
-      clientId = value;
-      console.log(`🔑 Found Client ID in header: ${header}`);
-      break;
-    }
+  if (clientId) {
+    console.log(`🔑 Found Client ID in header: x-petfinder-client-id`);
   }
 
-  for (const header of possibleClientSecretHeaders) {
-    const value = headers.get(header);
-    if (value) {
-      clientSecret = value;
-      console.log(`🔐 Found Client Secret in header: ${header}`);
-      break;
-    }
+  if (clientSecret) {
+    console.log(`🔐 Found Client Secret in header: x-petfinder-client-secret`);
   }
 
   return { clientId, clientSecret };
@@ -640,6 +652,18 @@ async function handleMCPRequest(
           error: {
             code: -32601,
             message: `Tool ${name} not found`,
+          },
+        };
+      }
+
+      // Check for required authentication headers
+      if (!clientId || !clientSecret) {
+        return {
+          jsonrpc: '2.0',
+          id: request.id!,
+          error: {
+            code: -32001,
+            message: 'Authentication required - you need to pass both x-petfinder-client-id and x-petfinder-client-secret headers',
           },
         };
       }
