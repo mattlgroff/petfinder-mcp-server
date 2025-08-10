@@ -1,0 +1,16 @@
+{
+  "name": "petfinder-mcp-server",
+  "module": "simple-mcp-server.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "dependencies": {
+    "@types/node": "^24.1.0",
+    "zod": "^4.0.10"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,14 @@
+node_modules
+.git
+.gitignore
+README.md
+test-integration.js
+*.log
+.env
+.env.local
+.env.*.local
+coverage
+.coverage
+.nyc_output
+.DS_Store
+Thumbs.db 
