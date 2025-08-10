@@ -549,7 +549,8 @@ const tools = [
   {
     name: 'pets.search',
     title: 'Search for adoptable pets',
-    description: 'Search for adoptable pets by type, breed, size, location, and other criteria. Optional parameters: status (default: "adoptable"), sort (default: "recent"), page (default: 1), limit (default: 20).',
+    description:
+      'Search for adoptable pets by type, breed, size, location, and other criteria. Optional parameters: status (default: "adoptable"), sort (default: "recent"), page (default: 1), limit (default: 20). Link hint: use the animal.url field in each result as the pet profile URLs.',
     inputSchema: zodToMCPSchema(animalSearchSchema),
   },
   {
@@ -561,13 +562,15 @@ const tools = [
   {
     name: 'organizations.search',
     title: 'Search for animal welfare organizations',
-    description: 'Search for animal welfare organizations by name, location, and other criteria. Optional parameters: sort, page (default: 1), limit (default: 20).',
+    description:
+      'Search for animal welfare organizations by name, location, and other criteria. Optional parameters: sort, page (default: 1), limit (default: 20).',
     inputSchema: zodToMCPSchema(organizationSearchSchema),
   },
   {
     name: 'organizations.get',
     title: 'Get organization details',
-    description: 'Get detailed information about a specific organization by ID.',
+    description:
+      'Get detailed information about a specific organization by ID.',
     inputSchema: zodToMCPSchema(organizationGetSchema),
   },
   {
